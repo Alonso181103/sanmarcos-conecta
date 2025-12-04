@@ -1,12 +1,6 @@
 // src/context/ForumContext.tsx
 
-import {
-  createContext,
-  useContext,
-  useState,
-  ReactNode,
-  useMemo,
-} from "react";
+import { createContext, useContext, useState, ReactNode, useMemo } from "react";
 
 import {
   forumApi,
@@ -104,17 +98,52 @@ interface ForumContextValue {
 
 const ForumContext = createContext<ForumContextValue | undefined>(undefined);
 
+/**
+ * En local: BASE_URL = "/"
+ * En GitHub Pages: BASE_URL = "/<repo>/"
+ */
+const BASE = import.meta.env.BASE_URL;
+const DEFAULT_AVATAR_URL = `${BASE}images/default-avatar.png`;
+const DEFAULT_BANNER_URL = `${BASE}images/default-banner.jpg`;
+
+/**
+ * Normaliza rutas que vengan en user.avatarUrl/bannerUrl para que
+ * funcionen bien en GitHub Pages.
+ *
+ * Soporta:
+ * - data:... (FileReader)
+ * - http(s)://...
+ * - /images/...
+ * - images/...
+ * - default-avatar.png (sin carpeta)
+ */
+const normalizePublicImage = (url?: string) => {
+  if (!url) return undefined;
+  const trimmed = url.trim();
+  if (!trimmed) return undefined;
+
+  if (
+    trimmed.startsWith("data:") ||
+    trimmed.startsWith("http://") ||
+    trimmed.startsWith("https://")
+  ) {
+    return trimmed;
+  }
+
+  if (trimmed.startsWith("/")) return `${BASE}${trimmed.slice(1)}`; // "/images/x" -> `${BASE}images/x`
+  if (trimmed.startsWith("images/")) return `${BASE}${trimmed}`; // "images/x" -> `${BASE}images/x`
+
+  // "default-avatar.png" -> `${BASE}images/default-avatar.png`
+  return `${BASE}images/${trimmed}`;
+};
+
+const withDefaultImages = (user: User): User => ({
+  ...user,
+  avatarUrl: normalizePublicImage(user.avatarUrl) ?? DEFAULT_AVATAR_URL,
+  bannerUrl: normalizePublicImage(user.bannerUrl) ?? DEFAULT_BANNER_URL,
+});
+
 export const ForumProvider = ({ children }: { children: ReactNode }) => {
-  // 🎨 Valores por defecto para avatar y banner
-  const DEFAULT_AVATAR_URL = "/images/default-avatar.png";
-  const DEFAULT_BANNER_URL = "/images/default-banner.jpg";
-
-  const withDefaultImages = (user: User): User => ({
-    ...user,
-    avatarUrl: user.avatarUrl || DEFAULT_AVATAR_URL,
-    bannerUrl: user.bannerUrl || DEFAULT_BANNER_URL,
-  });
-
   // Base
   const [posts, setPosts] = useState<Post[]>(() => forumApi.getPosts());
   const categories = useMemo(() => forumApi.getCategories(), []);
@@ -176,10 +205,8 @@ export const ForumProvider = ({ children }: { children: ReactNode }) => {
   const getPostsByFaculty = (facultyId: FacultyId) =>
     posts.filter((p) => p.facultyId === facultyId);
 
-  const getCategoryById = (id: CategoryId) =>
-    categories.find((c) => c.id === id);
-  const getFacultyById = (id: FacultyId) =>
-    faculties.find((f) => f.id === id);
+  const getCategoryById = (id: CategoryId) => categories.find((c) => c.id === id);
+  const getFacultyById = (id: FacultyId) => faculties.find((f) => f.id === id);
 
   // ---------------------------
   // Comentarios
@@ -250,9 +277,16 @@ export const ForumProvider = ({ children }: { children: ReactNode }) => {
   // Perfil
   // ---------------------------
   const updateUserProfile = (data: Partial<User>) => {
-    const u = withDefaultImages(
-      forumApi.updateUserProfile(currentUser.id, data)
-    );
+    // OJO: Normalizamos también lo que venga en data, por si guardas "default-avatar.png" etc.
+    const fixedData: Partial<User> = { ...data };
+    if (typeof fixedData.avatarUrl === "string") {
+      fixedData.avatarUrl = normalizePublicImage(fixedData.avatarUrl);
+    }
+    if (typeof fixedData.bannerUrl === "string") {
+      fixedData.bannerUrl = normalizePublicImage(fixedData.bannerUrl);
+    }
+
+    const u = withDefaultImages(forumApi.updateUserProfile(currentUser.id, fixedData));
     setCurrentUser(u);
     return u;
   };
@@ -270,9 +304,7 @@ export const ForumProvider = ({ children }: { children: ReactNode }) => {
 
   const toggleSavePost = (postId: string) => {
     setSavedPosts((prev) =>
-      prev.includes(postId)
-        ? prev.filter((p) => p !== postId)
-        : [...prev, postId]
+      prev.includes(postId) ? prev.filter((p) => p !== postId) : [...prev, postId]
     );
   };
 
@@ -298,8 +330,7 @@ export const ForumProvider = ({ children }: { children: ReactNode }) => {
   // ---------------------------
   // Votos comentarios
   // ---------------------------
-  const getUserCommentVote = (id: string) =>
-    commentVotes[id] ?? 0;
+  const getUserCommentVote = (id: string) => commentVotes[id] ?? 0;
 
   const voteComment = (id: string, value: 1 | -1) => {
     setCommentVotes((prev) => {
@@ -402,11 +433,7 @@ export const ForumProvider = ({ children }: { children: ReactNode }) => {
     ]
   );
 
-  return (
-    <ForumContext.Provider value={value}>
-      {children}
-    </ForumContext.Provider>
-  );
+  return <ForumContext.Provider value={value}>{children}</ForumContext.Provider>;
 };
 
 export const useForum = () => {
