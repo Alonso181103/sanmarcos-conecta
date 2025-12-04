@@ -83,6 +83,51 @@ const generateReportId = () =>
 const generateNotificationId = () =>
   `n-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
+/**
+ * En local: BASE_URL = "/"
+ * En GitHub Pages: BASE_URL = "/<repo>/"
+ *
+ * OJO: esto se reemplaza en build por Vite, por eso es válido en runtime.
+ */
+const BASE = import.meta.env.BASE_URL;
+const DEFAULT_AVATAR_URL = `${BASE}images/default-avatar.png`;
+const DEFAULT_BANNER_URL = `${BASE}images/default-banner.jpg`;
+
+/**
+ * Normaliza rutas que puedan venir de data/mock o edición de perfil
+ * para que siempre apunten bien en GitHub Pages.
+ */
+const normalizePublicImage = (url?: string) => {
+  if (!url) return undefined;
+  const trimmed = url.trim();
+  if (!trimmed) return undefined;
+
+  if (
+    trimmed.startsWith("data:") ||
+    trimmed.startsWith("http://") ||
+    trimmed.startsWith("https://")
+  ) {
+    return trimmed;
+  }
+
+  // "/images/x" -> `${BASE}images/x`
+  if (trimmed.startsWith("/")) return `${BASE}${trimmed.slice(1)}`;
+
+  // "images/x" -> `${BASE}images/x`
+  if (trimmed.startsWith("images/")) return `${BASE}${trimmed}`;
+
+  // "default-avatar.png" -> `${BASE}images/default-avatar.png`
+  return `${BASE}images/${trimmed}`;
+};
+
+const withDefaults = (u: User): User => ({
+  ...u,
+  createdAt: u.createdAt ?? new Date().toISOString(),
+  bio: u.bio ?? "",
+  avatarUrl: normalizePublicImage(u.avatarUrl) ?? DEFAULT_AVATAR_URL,
+  bannerUrl: normalizePublicImage(u.bannerUrl) ?? DEFAULT_BANNER_URL,
+});
+
 export const forumApi = {
   // ---------- CATEGORÍAS ----------
   getCategories(): Category[] {
@@ -114,23 +159,13 @@ export const forumApi = {
 
   getCurrentUser(): User {
     const found = USERS.find((u) => u.id === currentUserId);
-
     const base = found ?? CURRENT_USER;
-
-    // Aseguramos campos nuevos con valores por defecto para compatibilidad
-    return {
-      ...base,
-      createdAt: base.createdAt ?? new Date().toISOString(),
-      bio: base.bio ?? "",
-      avatarUrl: base.avatarUrl ?? "/images/default-avatar.png",
-      bannerUrl: base.bannerUrl ?? "/images/default-banner.jpg",
-    };
+    return withDefaults(base);
   },
 
   login(credentials: LoginCredentials): User {
     const user = USERS.find(
-      (u) =>
-        u.email?.toLowerCase() === credentials.email.toLowerCase().trim()
+      (u) => u.email?.toLowerCase() === credentials.email.toLowerCase().trim()
     );
 
     if (!user) {
@@ -151,22 +186,26 @@ export const forumApi = {
       throw new Error("Usuario no encontrado");
     }
 
+    // Normalizamos imágenes antes de guardar, por si viene:
+    // "default-avatar.png" o "/images/default-avatar.png" etc.
+    const fixedData: Partial<User> = { ...data };
+    if (typeof fixedData.avatarUrl === "string") {
+      fixedData.avatarUrl = normalizePublicImage(fixedData.avatarUrl);
+    }
+    if (typeof fixedData.bannerUrl === "string") {
+      fixedData.bannerUrl = normalizePublicImage(fixedData.bannerUrl);
+    }
+
     USERS[index] = {
       ...USERS[index],
-      ...data,
+      ...fixedData,
     };
 
     if (currentUserId === userId) {
       return this.getCurrentUser();
     }
 
-    return {
-      ...USERS[index],
-      createdAt: USERS[index].createdAt ?? new Date().toISOString(),
-      bio: USERS[index].bio ?? "",
-      avatarUrl: USERS[index].avatarUrl ?? "/images/default-avatar.png",
-      bannerUrl: USERS[index].bannerUrl ?? "/images/default-banner.jpg",
-    };
+    return withDefaults(USERS[index]);
   },
 
   // ---------- POSTS ----------
@@ -214,12 +253,8 @@ export const forumApi = {
       ...current,
       ...(input.title !== undefined ? { title: input.title } : {}),
       ...(input.content !== undefined ? { content: input.content } : {}),
-      ...(input.categoryId !== undefined
-        ? { categoryId: input.categoryId }
-        : {}),
-      ...(input.facultyId !== undefined
-        ? { facultyId: input.facultyId }
-        : {}),
+      ...(input.categoryId !== undefined ? { categoryId: input.categoryId } : {}),
+      ...(input.facultyId !== undefined ? { facultyId: input.facultyId } : {}),
       ...(input.courseId !== undefined ? { courseId: input.courseId } : {}),
     };
 
