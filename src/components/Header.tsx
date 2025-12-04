@@ -1,6 +1,6 @@
 // src/components/Header.tsx
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -25,27 +25,36 @@ import { cn } from "@/lib/utils";
 type Theme = "light" | "dark";
 const THEME_STORAGE_KEY = "smc-theme";
 
-// ✅ GitHub Pages safe
-const BASE = import.meta.env.BASE_URL;
+const BASE = import.meta.env.BASE_URL; // "/" en local, "/sanmarcos-conecta/" en GH Pages
 const DEFAULT_AVATAR = `${BASE}images/default-avatar.png`;
 
-const normalizePublicImage = (url?: string) => {
-  if (!url) return undefined;
-  const trimmed = url.trim();
-  if (!trimmed) return undefined;
+function normalizeImageUrl(input?: string) {
+  const url = (input ?? "").trim();
+  if (!url) return DEFAULT_AVATAR;
 
-  if (
-    trimmed.startsWith("data:") ||
-    trimmed.startsWith("http://") ||
-    trimmed.startsWith("https://")
-  ) {
-    return trimmed;
+  // data-uri o url externa
+  if (url.startsWith("data:") || url.startsWith("http://") || url.startsWith("https://")) {
+    return url;
   }
 
-  if (trimmed.startsWith("/")) return `${BASE}${trimmed.slice(1)}`;
-  if (trimmed.startsWith("images/")) return `${BASE}${trimmed}`;
-  return `${BASE}images/${trimmed}`;
-};
+  // ✅ Si ya es absoluta desde el dominio (ej: "/sanmarcos-conecta/images/x.png")
+  // déjala tal cual. (Esto evita el duplicado)
+  if (url.startsWith("/")) {
+    // Caso especial: "/images/x.png" NO sirve en GH Pages (raíz del dominio),
+    // entonces lo convertimos a BASE + "images/x.png"
+    if (url.startsWith("/images/")) return `${BASE}${url.slice(1)}`;
+    return url;
+  }
+
+  // Si ya incluye BASE (ej: "sanmarcos-conecta/images/x.png" o "/sanmarcos-conecta/..." no aplica aquí)
+  if (url.startsWith(BASE)) return url;
+
+  // "images/x.png"
+  if (url.startsWith("images/")) return `${BASE}${url}`;
+
+  // "default-avatar.png" pelado
+  return `${BASE}images/${url}`;
+}
 
 const Header = () => {
   const navigate = useNavigate();
@@ -62,10 +71,8 @@ const Header = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [theme, setTheme] = useState<Theme>("light");
 
-  // ✅ si en algún lado quedó "default-avatar.png" pelado, aquí lo arreglamos
-  const avatarUrl = normalizePublicImage(currentUser.avatarUrl) ?? DEFAULT_AVATAR;
+  const avatarSrc = useMemo(() => normalizeImageUrl(currentUser.avatarUrl), [currentUser.avatarUrl]);
 
-  // ---- Inicializar tema ----
   useEffect(() => {
     try {
       const stored = localStorage.getItem(THEME_STORAGE_KEY) as Theme | null;
@@ -82,7 +89,6 @@ const Header = () => {
     } catch {}
   }, []);
 
-  // ---- Sincronizar tema ----
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
     try {
@@ -90,11 +96,8 @@ const Header = () => {
     } catch {}
   }, [theme]);
 
-  const toggleTheme = () => {
-    setTheme((prev) => (prev === "dark" ? "light" : "dark"));
-  };
+  const toggleTheme = () => setTheme((prev) => (prev === "dark" ? "light" : "dark"));
 
-  // ---- Búsqueda ----
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const term = searchTerm.trim();
@@ -109,28 +112,20 @@ const Header = () => {
 
   return (
     <header className="sticky top-0 z-40 border-b bg-background/70 backdrop-blur-xl shadow-subtle supports-[backdrop-filter]:bg-background/40">
-      {/* BARRA PRINCIPAL */}
       <div className="container mx-auto flex h-16 items-center gap-4 px-4">
-        {/* IZQUIERDA: Logo */}
         <div className="flex shrink-0 items-center gap-2">
-          <Link
-            to="/"
-            className="group flex items-center gap-2 transition-all hover:opacity-90"
-          >
+          <Link to="/" className="group flex items-center gap-2 transition-all hover:opacity-90">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-primary to-accent text-primary-foreground shadow-soft">
               <GraduationCap className="h-4 w-4" />
             </div>
 
             <div className="hidden leading-tight sm:block">
               <p className="text-sm font-semibold">San Marcos Conecta</p>
-              <p className="text-[11px] text-muted-foreground">
-                Foro académico de la UNMSM
-              </p>
+              <p className="text-[11px] text-muted-foreground">Foro académico de la UNMSM</p>
             </div>
           </Link>
         </div>
 
-        {/* CENTRO: búsqueda desktop/tablet */}
         <div className="hidden flex-1 justify-center md:flex">
           <form onSubmit={handleSearchSubmit} className="w-full max-w-xl">
             <div className="relative">
@@ -148,9 +143,7 @@ const Header = () => {
           </form>
         </div>
 
-        {/* DERECHA: acciones */}
         <div className="ml-auto flex items-center gap-2">
-          {/* Nueva publicación (desktop) */}
           <Button
             type="button"
             size="sm"
@@ -161,7 +154,6 @@ const Header = () => {
             Nueva publicación
           </Button>
 
-          {/* Icono móvil */}
           <Button
             type="button"
             size="icon"
@@ -171,7 +163,6 @@ const Header = () => {
             <PenSquare className="h-4 w-4" />
           </Button>
 
-          {/* NOTIFICACIONES */}
           <Popover>
             <PopoverTrigger asChild>
               <button
@@ -187,10 +178,7 @@ const Header = () => {
               </button>
             </PopoverTrigger>
 
-            <PopoverContent
-              align="end"
-              className="w-80 rounded-xl border bg-background p-3 shadow-soft-lg backdrop-blur-xl"
-            >
+            <PopoverContent align="end" className="w-80 rounded-xl border bg-background p-3 shadow-soft-lg backdrop-blur-xl">
               <div className="mb-2 flex items-center justify-between">
                 <p className="text-xs font-semibold">Notificaciones</p>
                 {unreadNotificationsCount > 0 && (
@@ -205,9 +193,7 @@ const Header = () => {
               </div>
 
               {notifications.length === 0 && (
-                <p className="py-2 text-xs text-muted-foreground">
-                  No tienes notificaciones.
-                </p>
+                <p className="py-2 text-xs text-muted-foreground">No tienes notificaciones.</p>
               )}
 
               {notifications.length > 0 && (
@@ -225,8 +211,7 @@ const Header = () => {
                       }}
                     >
                       <p>
-                        <span className="font-medium">{n.data.fromUser}</span>{" "}
-                        {n.data.message}
+                        <span className="font-medium">{n.data.fromUser}</span> {n.data.message}
                       </p>
                       <p className="mt-1 text-[10px] text-muted-foreground">
                         {new Date(n.createdAt).toLocaleString("es-PE", {
@@ -241,7 +226,6 @@ const Header = () => {
             </PopoverContent>
           </Popover>
 
-          {/* PERFIL / AVATAR */}
           <Popover>
             <PopoverTrigger asChild>
               <button
@@ -249,22 +233,24 @@ const Header = () => {
                 className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border bg-card shadow-subtle transition-all hover:shadow-soft"
               >
                 <img
-                  src={avatarUrl}
+                  src={avatarSrc}
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).src = DEFAULT_AVATAR;
+                  }}
                   alt={currentUser.name}
                   className="h-full w-full object-cover"
                 />
               </button>
             </PopoverTrigger>
 
-            <PopoverContent
-              align="end"
-              className="w-64 rounded-xl border bg-background p-3 shadow-soft-lg backdrop-blur-xl text-xs"
-            >
-              {/* Cabecera */}
+            <PopoverContent align="end" className="w-64 rounded-xl border bg-background p-3 shadow-soft-lg backdrop-blur-xl text-xs">
               <div className="mb-2 flex items-center gap-2 border-b pb-2">
                 <div className="h-10 w-10 overflow-hidden rounded-full bg-muted">
                   <img
-                    src={avatarUrl}
+                    src={avatarSrc}
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src = DEFAULT_AVATAR;
+                    }}
                     alt={currentUser.name}
                     className="h-full w-full object-cover"
                   />
@@ -272,14 +258,11 @@ const Header = () => {
                 <div className="leading-tight">
                   <p className="text-sm font-semibold">{currentUser.name}</p>
                   {currentUser.email && (
-                    <p className="text-[11px] text-muted-foreground">
-                      {currentUser.email}
-                    </p>
+                    <p className="text-[11px] text-muted-foreground">{currentUser.email}</p>
                   )}
                 </div>
               </div>
 
-              {/* Opciones */}
               <div className="space-y-1">
                 <button
                   type="button"
@@ -319,7 +302,6 @@ const Header = () => {
         </div>
       </div>
 
-      {/* BÚSQUEDA EN MÓVIL */}
       <div className="border-t border-border/60 bg-background/95 px-4 pb-3 pt-1 md:hidden">
         <form onSubmit={handleSearchSubmit}>
           <div className="relative">
