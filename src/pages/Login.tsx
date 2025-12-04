@@ -90,7 +90,7 @@ const Login = () => {
                 {users.length > 0 && (
                   <div className="space-y-2">
                     <label className="text-xs font-medium text-muted-foreground">
-                      Seleccionar usuario de prueba
+                      Seleccionar usuario 
                     </label>
                     <Select
                       value={selectedEmail}
@@ -111,11 +111,6 @@ const Login = () => {
                         ))}
                       </SelectContent>
                     </Select>
-                    <p className="text-[10px] text-muted-foreground">
-                      Esta lista es solo para pruebas locales. En
-                      producción se validaría el correo contra el sistema
-                      real.
-                    </p>
                   </div>
                 )}
 
@@ -147,14 +142,6 @@ const Login = () => {
                   {submitting ? "Ingresando..." : "Ingresar al foro"}
                 </Button>
               </form>
-
-              <div className="mt-2 space-y-1 text-[11px] text-muted-foreground text-center">
-                <p>
-                  Este inicio de sesión es solo una simulación para
-                  desarrollo. Más adelante se integrará con el sistema
-                  real de autenticación de la UNMSM.
-                </p>
-              </div>
             </CardContent>
           </div>
         </Card>
