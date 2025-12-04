@@ -5,11 +5,7 @@ import { Link, useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 import {
   Bell,
@@ -27,8 +23,29 @@ import { useForum } from "@/context/ForumContext";
 import { cn } from "@/lib/utils";
 
 type Theme = "light" | "dark";
-
 const THEME_STORAGE_KEY = "smc-theme";
+
+// ✅ GitHub Pages safe
+const BASE = import.meta.env.BASE_URL;
+const DEFAULT_AVATAR = `${BASE}images/default-avatar.png`;
+
+const normalizePublicImage = (url?: string) => {
+  if (!url) return undefined;
+  const trimmed = url.trim();
+  if (!trimmed) return undefined;
+
+  if (
+    trimmed.startsWith("data:") ||
+    trimmed.startsWith("http://") ||
+    trimmed.startsWith("https://")
+  ) {
+    return trimmed;
+  }
+
+  if (trimmed.startsWith("/")) return `${BASE}${trimmed.slice(1)}`;
+  if (trimmed.startsWith("images/")) return `${BASE}${trimmed}`;
+  return `${BASE}images/${trimmed}`;
+};
 
 const Header = () => {
   const navigate = useNavigate();
@@ -45,8 +62,8 @@ const Header = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [theme, setTheme] = useState<Theme>("light");
 
-  const avatarUrl =
-    currentUser.avatarUrl ?? "/images/default-avatar.png";
+  // ✅ si en algún lado quedó "default-avatar.png" pelado, aquí lo arreglamos
+  const avatarUrl = normalizePublicImage(currentUser.avatarUrl) ?? DEFAULT_AVATAR;
 
   // ---- Inicializar tema ----
   useEffect(() => {
@@ -208,9 +225,7 @@ const Header = () => {
                       }}
                     >
                       <p>
-                        <span className="font-medium">
-                          {n.data.fromUser}
-                        </span>{" "}
+                        <span className="font-medium">{n.data.fromUser}</span>{" "}
                         {n.data.message}
                       </p>
                       <p className="mt-1 text-[10px] text-muted-foreground">
@@ -279,11 +294,7 @@ const Header = () => {
                   className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-xs transition hover:bg-muted/60"
                   onClick={toggleTheme}
                 >
-                  {theme === "dark" ? (
-                    <Moon className="h-4 w-4" />
-                  ) : (
-                    <Sun className="h-4 w-4" />
-                  )}
+                  {theme === "dark" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
                   Tema
                 </button>
 
