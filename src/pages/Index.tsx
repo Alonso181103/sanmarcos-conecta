@@ -9,12 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-} from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 import {
   User as UserIcon,
@@ -42,6 +37,46 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+
+/**
+ * En local: BASE_URL = "/"
+ * En GitHub Pages: BASE_URL = "/<nombre-repo>/"
+ */
+const BASE = import.meta.env.BASE_URL;
+const DEFAULT_AVATAR = `${BASE}images/default-avatar.png`;
+const DEFAULT_BANNER = `${BASE}images/default-banner.jpg`;
+
+/**
+ * Normaliza URLs para que funcionen tanto en local como en GitHub Pages.
+ * Soporta:
+ * - data:... (FileReader)
+ * - http(s)://...
+ * - /images/...
+ * - images/...
+ * - default-avatar.png (sin carpeta)
+ */
+const normalizePublicImage = (url?: string) => {
+  if (!url) return undefined;
+  const trimmed = url.trim();
+  if (!trimmed) return undefined;
+
+  if (
+    trimmed.startsWith("data:") ||
+    trimmed.startsWith("http://") ||
+    trimmed.startsWith("https://")
+  ) {
+    return trimmed;
+  }
+
+  // "/images/x.png" -> `${BASE}images/x.png`
+  if (trimmed.startsWith("/")) return `${BASE}${trimmed.slice(1)}`;
+
+  // "images/x.png" -> `${BASE}images/x.png`
+  if (trimmed.startsWith("images/")) return `${BASE}${trimmed}`;
+
+  // "default-avatar.png" -> `${BASE}images/default-avatar.png`
+  return `${BASE}images/${trimmed}`;
+};
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -99,9 +134,7 @@ const Profile = () => {
     });
 
     return items.sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() -
-        new Date(a.createdAt).getTime()
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
   }, [posts, currentUser.name, getCommentsByPostId]);
 
@@ -115,9 +148,7 @@ const Profile = () => {
   const latestMyPosts = myPosts
     .slice()
     .sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() -
-        new Date(a.createdAt).getTime()
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     )
     .slice(0, 5);
 
@@ -126,9 +157,7 @@ const Profile = () => {
   const latestSavedPosts = savedPostsList
     .slice()
     .sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() -
-        new Date(a.createdAt).getTime()
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     )
     .slice(0, 5);
 
@@ -139,30 +168,20 @@ const Profile = () => {
   );
 
   const commentKarma = useMemo(
-    () =>
-      myComments.reduce(
-        (acc, c) => acc + getCommentScore(c.id),
-        0
-      ),
+    () => myComments.reduce((acc, c) => acc + getCommentScore(c.id), 0),
     [myComments, getCommentScore]
   );
 
   const totalKarma = postKarma + commentKarma;
 
   // ------- Fecha "En el foro desde" -------
-  const createdAtDate = currentUser.createdAt
-    ? new Date(currentUser.createdAt)
-    : null;
+  const createdAtDate = currentUser.createdAt ? new Date(currentUser.createdAt) : null;
 
   const oldestActivityDate = (() => {
     const dates: number[] = [];
     if (createdAtDate) dates.push(createdAtDate.getTime());
-    myPosts.forEach((p) =>
-      dates.push(new Date(p.createdAt).getTime())
-    );
-    myComments.forEach((c) =>
-      dates.push(new Date(c.createdAt).getTime())
-    );
+    myPosts.forEach((p) => dates.push(new Date(p.createdAt).getTime()));
+    myComments.forEach((c) => dates.push(new Date(c.createdAt).getTime()));
     if (!dates.length) return null;
     return new Date(Math.min(...dates));
   })();
@@ -206,12 +225,14 @@ const Profile = () => {
   // ------- Estado para editar perfil -------
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [bioDraft, setBioDraft] = useState(currentUser.bio ?? "");
+
   const [avatarDraft, setAvatarDraft] = useState(
-    currentUser.avatarUrl ?? "/images/default-avatar.png"
+    normalizePublicImage(currentUser.avatarUrl) ?? DEFAULT_AVATAR
   );
   const [bannerDraft, setBannerDraft] = useState(
-    currentUser.bannerUrl ?? "/images/default-banner.jpg"
+    normalizePublicImage(currentUser.bannerUrl) ?? DEFAULT_BANNER
   );
+
   const [interestsDraft, setInterestsDraft] = useState(
     currentUser.interests ?? interestsArray.join(", ")
   );
@@ -228,32 +249,19 @@ const Profile = () => {
 
   useEffect(() => {
     setBioDraft(currentUser.bio ?? "");
-    setAvatarDraft(
-      currentUser.avatarUrl ?? "/images/default-avatar.png"
-    );
-    setBannerDraft(
-      currentUser.bannerUrl ?? "/images/default-banner.jpg"
-    );
-    setInterestsDraft(
-      currentUser.interests ?? interestsArray.join(", ")
-    );
-    setHobbiesDraft(
-      currentUser.hobbies ?? hobbiesArray.join(", ")
-    );
+    setAvatarDraft(normalizePublicImage(currentUser.avatarUrl) ?? DEFAULT_AVATAR);
+    setBannerDraft(normalizePublicImage(currentUser.bannerUrl) ?? DEFAULT_BANNER);
+    setInterestsDraft(currentUser.interests ?? interestsArray.join(", "));
+    setHobbiesDraft(currentUser.hobbies ?? hobbiesArray.join(", "));
     setPhoneDraft(currentUser.phone ?? "");
-    setLocationDraft(
-      currentUser.location ?? "Ciudad Universitaria, Lima – Perú"
-    );
+    setLocationDraft(currentUser.location ?? "Ciudad Universitaria, Lima – Perú");
   }, [currentUser.id, currentUser, interestsArray, hobbiesArray]);
 
   const handleOpenEdit = () => {
     setIsEditOpen(true);
   };
 
-  const handleFileToDataUrl = (
-    file: File,
-    cb: (url: string) => void
-  ) => {
+  const handleFileToDataUrl = (file: File, cb: (url: string) => void) => {
     const reader = new FileReader();
     reader.onload = () => {
       const result = reader.result;
@@ -264,9 +272,7 @@ const Profile = () => {
     reader.readAsDataURL(file);
   };
 
-  const handleAvatarChange: React.ChangeEventHandler<HTMLInputElement> = (
-    e
-  ) => {
+  const handleAvatarChange: React.ChangeEventHandler<HTMLInputElement> = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     handleFileToDataUrl(file, (url) => {
@@ -274,9 +280,7 @@ const Profile = () => {
     });
   };
 
-  const handleBannerChange: React.ChangeEventHandler<HTMLInputElement> = (
-    e
-  ) => {
+  const handleBannerChange: React.ChangeEventHandler<HTMLInputElement> = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     handleFileToDataUrl(file, (url) => {
@@ -297,12 +301,15 @@ const Profile = () => {
     setIsEditOpen(false);
   };
 
+  const currentAvatar = normalizePublicImage(currentUser.avatarUrl) ?? DEFAULT_AVATAR;
+  const currentBanner = normalizePublicImage(currentUser.bannerUrl) ?? DEFAULT_BANNER;
+
   const isSaveDisabled =
     bioDraft.trim() === (currentUser.bio ?? "") &&
     avatarDraft.trim() ===
-      (currentUser.avatarUrl ?? "/images/default-avatar.png") &&
+      (normalizePublicImage(currentUser.avatarUrl) ?? DEFAULT_AVATAR) &&
     bannerDraft.trim() ===
-      (currentUser.bannerUrl ?? "/images/default-banner.jpg") &&
+      (normalizePublicImage(currentUser.bannerUrl) ?? DEFAULT_BANNER) &&
     interestsDraft.trim() === (currentUser.interests ?? "") &&
     hobbiesDraft.trim() === (currentUser.hobbies ?? "") &&
     phoneDraft.trim() === (currentUser.phone ?? "") &&
@@ -317,9 +324,7 @@ const Profile = () => {
         {/* Banner */}
         <div className="relative h-32 w-full overflow-hidden md:h-44">
           <img
-            src={
-              currentUser.bannerUrl ?? "/images/default-banner.jpg"
-            }
+            src={currentBanner}
             alt="Banner de perfil"
             className="h-full w-full object-cover"
           />
@@ -335,10 +340,7 @@ const Profile = () => {
               <div className="relative -mt-14 md:-mt-16">
                 <div className="h-24 w-24 overflow-hidden rounded-3xl border-4 border-background bg-background shadow-[0_12px_30px_rgba(0,0,0,0.35)] md:h-28 md:w-28">
                   <img
-                    src={
-                      currentUser.avatarUrl ??
-                      "/images/default-avatar.png"
-                    }
+                    src={currentAvatar}
                     alt={currentUser.name}
                     className="h-full w-full object-cover"
                   />
@@ -379,9 +381,7 @@ const Profile = () => {
                   <span className="hidden items-center gap-1 md:inline-flex">
                     <Calendar className="h-3 w-3" />
                     En el foro desde{" "}
-                    <span className="font-medium">
-                      {formattedMemberSince}
-                    </span>
+                    <span className="font-medium">{formattedMemberSince}</span>
                   </span>
                 </div>
               </div>
@@ -474,17 +474,13 @@ const Profile = () => {
               </span>
             </div>
             <div className="flex items-center justify-between rounded-lg bg-muted/60 px-3 py-2">
-              <span className="text-muted-foreground">
-                Programa / escuela
-              </span>
+              <span className="text-muted-foreground">Programa / escuela</span>
               <span className="font-medium text-right">
                 {currentUser.program}
               </span>
             </div>
             <div className="flex items-center justify-between rounded-lg bg-muted/60 px-3 py-2">
-              <span className="text-muted-foreground">
-                Universidad
-              </span>
+              <span className="text-muted-foreground">Universidad</span>
               <span className="font-medium text-right">
                 Universidad Nacional Mayor de San Marcos
               </span>
@@ -514,28 +510,20 @@ const Profile = () => {
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-3 text-xs">
             <div className="rounded-lg border bg-background/80 px-3 py-2">
-              <p className="text-[11px] text-muted-foreground">
-                Posts creados
-              </p>
+              <p className="text-[11px] text-muted-foreground">Posts creados</p>
               <p className="text-xl font-semibold text-primary">
                 {myPosts.length}
               </p>
             </div>
             <div className="rounded-lg border bg-background/80 px-3 py-2">
-              <p className="text-[11px] text-muted-foreground">
-                Comentarios
-              </p>
+              <p className="text-[11px] text-muted-foreground">Comentarios</p>
               <p className="text-xl font-semibold text-primary">
                 {myComments.length}
               </p>
             </div>
             <div className="rounded-lg border bg-background/80 px-3 py-2">
-              <p className="text-[11px] text-muted-foreground">
-                Karma de posts
-              </p>
-              <p className="text-xl font-semibold text-primary">
-                {postKarma}
-              </p>
+              <p className="text-[11px] text-muted-foreground">Karma de posts</p>
+              <p className="text-xl font-semibold text-primary">{postKarma}</p>
             </div>
             <div className="rounded-lg border bg-background/80 px-3 py-2">
               <p className="text-[11px] text-muted-foreground">
@@ -582,13 +570,7 @@ const Profile = () => {
               <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
                 {hobbiesArray.map((hob, idx) => {
                   const Icon =
-                    idx === 0
-                      ? Gamepad2
-                      : idx === 1
-                      ? Music
-                      : idx === 2
-                      ? Code
-                      : Plane;
+                    idx === 0 ? Gamepad2 : idx === 1 ? Music : idx === 2 ? Code : Plane;
                   return (
                     <div
                       key={`${hob}-${idx}`}
@@ -619,17 +601,13 @@ const Profile = () => {
                 <p className="text-[11px] text-muted-foreground">
                   Correo institucional
                 </p>
-                <p className="font-medium">
-                  {currentUser.email ?? "—"}
-                </p>
+                <p className="font-medium">{currentUser.email ?? "—"}</p>
               </div>
             </div>
             <div className="flex items-center gap-2 rounded-lg bg-muted/60 px-3 py-2">
               <PhoneIcon className="h-4 w-4 text-primary" />
               <div className="space-y-0.5">
-                <p className="text-[11px] text-muted-foreground">
-                  Teléfono
-                </p>
+                <p className="text-[11px] text-muted-foreground">Teléfono</p>
                 <p className="font-medium">
                   {currentUser.phone ?? "No registrado"}
                 </p>
@@ -638,12 +616,9 @@ const Profile = () => {
             <div className="flex items-center gap-2 rounded-lg bg-muted/60 px-3 py-2">
               <MapPin className="h-4 w-4 text-primary" />
               <div className="space-y-0.5">
-                <p className="text-[11px] text-muted-foreground">
-                  Ubicación
-                </p>
+                <p className="text-[11px] text-muted-foreground">Ubicación</p>
                 <p className="font-medium">
-                  {currentUser.location ??
-                    "Ciudad Universitaria, Lima – Perú"}
+                  {currentUser.location ?? "Ciudad Universitaria, Lima – Perú"}
                 </p>
               </div>
             </div>
@@ -659,8 +634,7 @@ const Profile = () => {
               Actividad reciente
             </p>
             <p className="text-[11px] text-muted-foreground">
-              Explora un resumen, tus publicaciones, comentarios y lo
-              que guardaste.
+              Explora un resumen, tus publicaciones, comentarios y lo que guardaste.
             </p>
           </div>
         </div>
@@ -694,8 +668,7 @@ const Profile = () => {
                 <CardContent className="space-y-2">
                   {latestMyPosts.length === 0 ? (
                     <p className="text-[11px] text-muted-foreground">
-                      Aún no has publicado nada. Crea tu primera
-                      publicación para iniciar una conversación.
+                      Aún no has publicado nada. Crea tu primera publicación para iniciar una conversación.
                     </p>
                   ) : (
                     <ul className="space-y-2 text-xs">
@@ -703,18 +676,12 @@ const Profile = () => {
                         <li key={post.id}>
                           <button
                             type="button"
-                            onClick={() =>
-                              navigate(`/publicaciones/${post.id}`)
-                            }
+                            onClick={() => navigate(`/publicaciones/${post.id}`)}
                             className="w-full rounded-lg border bg-background/70 p-2 text-left transition hover:border-primary/60 hover:bg-muted/40"
                           >
-                            <p className="line-clamp-2 text-xs font-medium">
-                              {post.title}
-                            </p>
+                            <p className="line-clamp-2 text-xs font-medium">{post.title}</p>
                             <p className="mt-1 text-[11px] text-muted-foreground">
-                              {new Date(
-                                post.createdAt
-                              ).toLocaleDateString("es-PE", {
+                              {new Date(post.createdAt).toLocaleDateString("es-PE", {
                                 day: "2-digit",
                                 month: "short",
                               })}
@@ -755,9 +722,7 @@ const Profile = () => {
                             <p className="line-clamp-2 text-[11px] text-muted-foreground">
                               En: {comment.postTitle}
                             </p>
-                            <p className="mt-1 line-clamp-2 text-xs">
-                              {comment.content}
-                            </p>
+                            <p className="mt-1 line-clamp-2 text-xs">{comment.content}</p>
                           </button>
                         </li>
                       ))}
@@ -784,18 +749,12 @@ const Profile = () => {
                         <li key={post.id}>
                           <button
                             type="button"
-                            onClick={() =>
-                              navigate(`/publicaciones/${post.id}`)
-                            }
+                            onClick={() => navigate(`/publicaciones/${post.id}`)}
                             className="w-full rounded-lg border bg-background/70 p-2 text-left transition hover:border-primary/60 hover:bg-muted/40"
                           >
-                            <p className="line-clamp-2 text-xs font-medium">
-                              {post.title}
-                            </p>
+                            <p className="line-clamp-2 text-xs font-medium">{post.title}</p>
                             <p className="mt-1 text-[11px] text-muted-foreground">
-                              {new Date(
-                                post.createdAt
-                              ).toLocaleDateString("es-PE", {
+                              {new Date(post.createdAt).toLocaleDateString("es-PE", {
                                 day: "2-digit",
                                 month: "short",
                               })}
@@ -842,9 +801,7 @@ const Profile = () => {
                         <li key={post.id}>
                           <button
                             type="button"
-                            onClick={() =>
-                              navigate(`/publicaciones/${post.id}`)
-                            }
+                            onClick={() => navigate(`/publicaciones/${post.id}`)}
                             className="flex w-full items-center justify-between gap-2 rounded-lg border bg-background/70 p-2 text-left transition hover:border-primary/60 hover:bg-muted/40"
                           >
                             <div className="space-y-0.5">
@@ -852,9 +809,7 @@ const Profile = () => {
                                 {post.title}
                               </p>
                               <p className="text-[11px] text-muted-foreground">
-                                {new Date(
-                                  post.createdAt
-                                ).toLocaleDateString("es-PE", {
+                                {new Date(post.createdAt).toLocaleDateString("es-PE", {
                                   day: "2-digit",
                                   month: "short",
                                   year: "numeric",
@@ -913,13 +868,9 @@ const Profile = () => {
                           <p className="line-clamp-2 text-[11px] text-muted-foreground">
                             En: {comment.postTitle}
                           </p>
-                          <p className="mt-1 line-clamp-2 text-xs">
-                            {comment.content}
-                          </p>
+                          <p className="mt-1 line-clamp-2 text-xs">{comment.content}</p>
                           <p className="mt-1 text-[11px] text-muted-foreground">
-                            {new Date(
-                              comment.createdAt
-                            ).toLocaleDateString("es-PE", {
+                            {new Date(comment.createdAt).toLocaleDateString("es-PE", {
                               day: "2-digit",
                               month: "short",
                               year: "numeric",
@@ -970,9 +921,7 @@ const Profile = () => {
                         <li key={post.id}>
                           <button
                             type="button"
-                            onClick={() =>
-                              navigate(`/publicaciones/${post.id}`)
-                            }
+                            onClick={() => navigate(`/publicaciones/${post.id}`)}
                             className="flex w-full items-center justify-between gap-2 rounded-lg border bg-background/70 p-2 text-left transition hover:border-primary/60 hover:bg-muted/40"
                           >
                             <div className="space-y-0.5">
@@ -980,9 +929,7 @@ const Profile = () => {
                                 {post.title}
                               </p>
                               <p className="text-[11px] text-muted-foreground">
-                                {new Date(
-                                  post.createdAt
-                                ).toLocaleDateString("es-PE", {
+                                {new Date(post.createdAt).toLocaleDateString("es-PE", {
                                   day: "2-digit",
                                   month: "short",
                                   year: "numeric",
@@ -1093,9 +1040,7 @@ const Profile = () => {
             {/* Intereses y hobbies */}
             <div className="grid gap-3 md:grid-cols-2">
               <div className="space-y-1.5">
-                <p className="text-xs font-medium">
-                  Intereses académicos
-                </p>
+                <p className="text-xs font-medium">Intereses académicos</p>
                 <Textarea
                   rows={3}
                   value={interestsDraft}
@@ -1104,14 +1049,11 @@ const Profile = () => {
                   className="text-xs"
                 />
                 <p className="text-[10px] text-muted-foreground">
-                  Separa cada interés con comas. Se mostrarán como chips
-                  en tu perfil.
+                  Separa cada interés con comas. Se mostrarán como chips en tu perfil.
                 </p>
               </div>
               <div className="space-y-1.5">
-                <p className="text-xs font-medium">
-                  Hobbies y pasatiempos
-                </p>
+                <p className="text-xs font-medium">Hobbies y pasatiempos</p>
                 <Textarea
                   rows={3}
                   value={hobbiesDraft}
@@ -1120,8 +1062,7 @@ const Profile = () => {
                   className="text-xs"
                 />
                 <p className="text-[10px] text-muted-foreground">
-                  También separa por comas; se usarán en la sección de
-                  pasatiempos.
+                  También separa por comas; se usarán en la sección de pasatiempos.
                 </p>
               </div>
             </div>
@@ -1157,11 +1098,7 @@ const Profile = () => {
               >
                 Cancelar
               </Button>
-              <Button
-                size="sm"
-                onClick={handleSaveProfile}
-                disabled={isSaveDisabled}
-              >
+              <Button size="sm" onClick={handleSaveProfile} disabled={isSaveDisabled}>
                 Guardar cambios
               </Button>
             </div>

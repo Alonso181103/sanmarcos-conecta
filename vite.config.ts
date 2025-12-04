@@ -15,6 +15,18 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
-  base: '/sanmarcos-conecta/',
-}));
 
+  /**
+   * GitHub Pages:
+   * - En local: "/"
+   * - En producción (Pages): "/<nombre-del-repo>/"
+   *
+   * Si tu repo se llama "sanmarcos-conecta", GitHub Actions suele exponerlo como
+   * env var. Si no existe, cae al valor fijo.
+   */
+  base: mode === "development"
+    ? "/"
+    : (process.env.GITHUB_REPOSITORY
+        ? `/${process.env.GITHUB_REPOSITORY.split("/")[1]}/`
+        : "/sanmarcos-conecta/"),
+}));
